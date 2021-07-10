@@ -18,7 +18,11 @@ object Vector2D {
         Vector2D(figure.vertices(start), figure.vertices(end))
     }
 
-  def shrinkAllowed(before: Vector2D, after: Vector2D, epsilon: Int): Boolean = {
+  def shrinkAllowed(
+      before: Vector2D,
+      after: Vector2D,
+      epsilon: Int
+  ): Boolean = {
     val ratio = epsilon.toDouble / 1000000
     math.abs((after.squareLength / before.squareLength) - 1) <= ratio
   }
@@ -42,14 +46,17 @@ case class Point(x: Int, y: Int) {
   private def onEdge(p: Point, q: Point, r: Point): Boolean = {
     import Math._
 
-    if (q.x <= max(p.x, r.x) && q.x >= min(p.x, r.x) && q.y <= max(p.y, r.y) && q.y >= min(p.y, r.y)) true
+    if (q.x <= max(p.x, r.x) && q.x >= min(p.x, r.x) && q.y <= max(p.y, r.y) && q.y >= min(
+          p.y,
+          r.y
+        )) true
     else false
   }
 
   def intersectedWith(edge: Vector2D): Boolean = {
     val edgeMaxX = Math.max(edge.start.x, edge.end.x)
-    val rayEnd = if (x > edgeMaxX) x + 1 else edgeMaxX + 1
-    val ray = Vector2D(Point(x, y), Point(rayEnd, y))
+    val rayEnd   = if (x > edgeMaxX) x + 1 else edgeMaxX + 1
+    val ray      = Vector2D(Point(x, y), Point(rayEnd, y))
 
     val o1 = orientation(edge.start, edge.end, ray.start)
     val o2 = orientation(edge.start, edge.end, ray.end)
@@ -65,20 +72,20 @@ case class Point(x: Int, y: Int) {
   }
 
   def inHole(hole: Hole): Boolean = {
-    val intersections = hole.edges.foldLeft(0.asRight[Boolean]) { case (countOrReturn, edge) =>
-      countOrReturn.flatMap { count =>
-        if (intersectedWith(edge)) {
-          if (orientation(edge.start, this, edge.end) == 0)
-            onEdge(edge.start, this, edge.end).asLeft
-          else
-            (count + 1).asRight
+    val intersections = hole.edges.foldLeft(0.asRight[Boolean]) {
+      case (countOrReturn, edge) =>
+        countOrReturn.flatMap { count =>
+          if (intersectedWith(edge)) {
+            if (orientation(edge.start, this, edge.end) == 0)
+              onEdge(edge.start, this, edge.end).asLeft
+            else
+              (count + 1).asRight
+          } else count.asRight
         }
-        else count.asRight
-      }
     }
 
     intersections match {
-      case Right(v) => v % 2 == 1
+      case Right(v)     => v % 2 == 1
       case Left(result) => result
     }
   }
@@ -89,7 +96,7 @@ object Point {
   implicit val decoder: Decoder[Point] =
     Decoder[List[Int]].emap {
       case List(x, y) => Right(Point(x, y))
-      case other => Left(s"Expected array[2], got $other")
+      case other      => Left(s"Expected array[2], got $other")
     }
 
   implicit val encoder: Encoder[Point] =
@@ -110,17 +117,16 @@ case class Hole(points: List[Point]) {
 
   def edges: List[Vector2D] = {
     val first = points.head
-    val last = points.last
+    val last  = points.last
 
     Vector2D(first, last) :: points
       .sliding(2)
       .flatMap {
         case List(first, second) => Some(Vector2D(first, second))
-        case _ => None
+        case _                   => None
       }
       .toList
   }
-
 
 }
 
@@ -131,8 +137,8 @@ object Problem {
     override def apply(c: HCursor): Result[Problem] =
       for {
         holePoints <- c.downField("hole").as[List[Point]]
-        epsilon <- c.downField("epsilon").as[Int]
-        figure <- c.downField("figure").as[Figure]
+        epsilon    <- c.downField("epsilon").as[Int]
+        figure     <- c.downField("figure").as[Figure]
       } yield Problem(Hole(holePoints), figure, epsilon)
   }
 
