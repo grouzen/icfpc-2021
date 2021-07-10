@@ -15,6 +15,8 @@ import scalafx.scene.text.Text
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import javafx.scene.{input => jfxi}
+import javafx.{event => jfxe}
 
 object Main extends JFXApp3 {
 
@@ -25,8 +27,7 @@ object Main extends JFXApp3 {
     stage = new PrimaryStage {
       title = "ICFPC 2021 visualizer"
       scene = visualizeProblem(
-        readProblemFromFile(Paths.get("problems", "1.problem")),
-        readPoseFromFile(Paths.get("solutions", "1.solution"))
+        readProblemFromFile(Paths.get("problems", "1.problem"))
       )
     }
 
@@ -44,19 +45,95 @@ object Main extends JFXApp3 {
       )
       .fold(throw _, identity)
 
-  class FigureInteractor(initial: Figure) extends ShapeDrawInteractor {
-    private var figure = initial
-    def lines          = mkLines(Vector2D.mkVectors(figure), Color.Red)
+  class FigureInteractor(problem: Problem, pane: Pane) extends MouseHandler {
+    private var pose = Pose(problem.figure.vertices)
 
-    override def update(): Unit = {
-      val started  = Point.from2D(start)
-      val pointIdx = figure.vertices.indexOf(started, from = 0)
-      if (pointIdx >= 0) {
-        figure = figure.copy(
-          vertices = figure.vertices.updated(pointIdx, Point.from2D(end))
-        )
+    val lines =
+      mkLines(Vector2D.mkVectors(problem.figure), Color.Red)
+        .map { line =>
+          line.onMouseClicked = jfxiHandler
+          pane.onMouseClicked = jfxiHandler
+          line
+        }
+
+    private val dislikeTextPane = new Text(600, 300, "") {
+      text = dislikesTest
+      font = Font(48)
+      fill = new LinearGradient(
+        endX = 0,
+        stops = Stops(Red, DarkRed)
+      )
+    }
+
+    val scores = Seq(
+      dislikeTextPane
+    )
+
+    private def dislikesTest: String = {
+      val dislikes = Pose.dislikes(pose, problem)
+      s"Dislikes: $dislikes"
+    }
+
+    private val verticeToLine = lines.zipWithIndex.map(_.swap).toMap
+
+    private def updateLines(idx: Int, isStarted: Boolean): Unit = {
+      val line  = verticeToLine(idx)
+      val point = pose.vertices(idx)
+      if (isStarted) {
+        line.startX = point.x
+        line.startY = point.y
+      } else {
+        line.endX = point.x
+        line.endY = point.y
+      }
+      dislikeTextPane.text = dislikesTest
+    }
+
+    // todo: update doesn't work correctly (target point is set to deto v yebenyiax)
+    private def update(start: Point2D, end: Point2D): Unit = {
+      val started = Point.from2D(start, Scale, Offset)
+      val ended   = Point.from2D(end, Scale, Offset)
+      println(s"started=$started ended=$ended")
+      findAprox(pose.vertices, delta = 5)(started) match {
+        case None =>
+          println("No update")
+        case Some((pointIdx, isStarted, p)) =>
+          println(s"Found $pointIdx $p")
+          pose = pose.copy(
+            vertices = pose.vertices.updated(pointIdx, ended)
+          )
+          updateLines(pointIdx, isStarted)
       }
     }
+
+    private var startOpt = Option.empty[Point2D]
+
+    private def setStart(p: Point2D): Unit = {
+      println(s"setStart($p)")
+      startOpt = Some(p)
+    }
+
+    override def handler: MouseEvent => Unit = { (me: MouseEvent) =>
+      me.eventType match {
+        case MouseEvent.MouseClicked if startOpt.isEmpty =>
+          // todo: check that clicked position is vertice
+          setStart(new Point2D(me.x, me.y))
+        case MouseEvent.MouseClicked if startOpt.nonEmpty =>
+          update(startOpt.get, new Point2D(me.x, me.y))
+        case _ =>
+      }
+    }
+
+    private def findAprox(points: List[Point], delta: Double)(point: Point): Option[(Int, Boolean, Point)] =
+      points.zipWithIndex.sliding(2).foldLeft(Option.empty[(Int, Boolean, Point)]) {
+        case (res @ Some(_), _) => res
+        case (None, List((start, startIdx), (end, endIdx))) =>
+          Option
+            .when((point ~= start).delta(delta))((startIdx, true, start))
+            .orElse {
+              Option.when((point ~= end).delta(delta))((endIdx, true, end))
+            }
+      }
   }
 
   private def mkLines(vectors: List[Vector2D], color: Color): List[Line] = {
@@ -69,63 +146,29 @@ object Main extends JFXApp3 {
       endX = vector.end.x * Scale + Offset
       endY = vector.end.y * Scale + Offset
     }
-
     vectors.map(mkLine)
   }
 
-  private def visualizeProblem(problem: Problem, pose: Pose) = {
-    val holes            = Vector2D.mkVectors(problem.hole)
-    val figureInteractor = new FigureInteractor(problem.figure)
-
-    val dislikes = Pose.dislikes(pose, problem)
-
+  private def visualizeProblem(problem: Problem) = {
+    val holes = Vector2D.mkVectors(problem.hole)
     new Scene(1000, 800) {
       fill = Color.White
       content = new Pane {
+        val figureInteractor = new FigureInteractor(problem, this)
         children = mkLines(holes, Color.Black) ++
           figureInteractor.lines ++
-          Seq(
-            new Text(600, 300, s"Dislikes: $dislikes") {
-              font = Font(48)
-              fill = new LinearGradient(
-                endX = 0,
-                stops = Stops(Red, DarkRed)
-              )
-            }
-          )
+          figureInteractor.scores
       }
     }
   }
 
-  trait MouseHandler { def handler: MouseEvent => Unit }
+  trait MouseHandler {
+    protected def handler: MouseEvent => Unit
 
-  trait ShapeDrawInteractor extends MouseHandler {
-    private var _start = new Point2D(0, 0)
-    private var _end   = new Point2D(0, 0)
-    def start: Point2D = _start
-
-    def start_=(p: Point2D): Unit = {
-      _start = p
-      _end = p
-      update()
-    }
-    def end: Point2D = _end
-
-    def end_=(p: Point2D): Unit = {
-      _end = p
-      update()
-    }
-
-    def update(): Unit
-
-    override def handler: MouseEvent => Unit = { (me: MouseEvent) =>
-      me.eventType match {
-        case MouseEvent.MousePressed =>
-          start = new Point2D(me.x, me.y)
-        case MouseEvent.MouseDragged =>
-          end = new Point2D(me.x, me.y)
-        case _ =>
+    def jfxiHandler: jfxe.EventHandler[_ >: jfxi.MouseEvent] =
+      (e: jfxi.MouseEvent) => {
+        println(s"Got event $e")
+        handler(new MouseEvent(e))
       }
-    }
   }
 }

@@ -35,8 +35,17 @@ object Vector2D {
   }
 }
 
-case class Point(x: Int, y: Int) {
+case class Point(x: Int, y: Int) { self =>
   override def toString: String = s"($x, $y)"
+
+  final case class ~=(that: Point) {
+
+    def delta(d: Double): Boolean =
+      (math.abs(self.x - that.x) <= d &&
+        math.abs(self.y - that.y) <= d) ||
+        (math.abs(self.x + that.x) <= d &&
+          math.abs(self.y + that.y) <= d)
+  }
 
   def squareDistanceTo(that: Point): Double =
     math.pow(this.x - that.x, 2) + math.pow(this.y - that.y, 2)
@@ -52,7 +61,10 @@ object Point {
   implicit val encoder: Encoder[Point] =
     Encoder[List[Int]].contramap[Point](p => List(p.x, p.y))
 
-  def from2D(point: Point2D): Point = Point(point.x.toInt, point.y.toInt)
+  def from2D(point: Point2D, scale: Int, offset: Int): Point = Point(
+    ((point.x - offset) / scale).toInt,
+    ((point.y - offset) / scale).toInt
+  )
 }
 
 case class Figure(edges: List[Point], vertices: List[Point])
