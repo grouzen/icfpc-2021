@@ -74,18 +74,15 @@ object Main extends JFXApp3 {
   }
 
   private def visualizeProblem(problem: Problem, pose: Pose) = {
-    val holes            = Vector2D.mkVectors(problem.hole)
     val figureInteractor = new FigureInteractor(problem.figure)
-
-    val dislikes = Pose.dislikes(pose, problem)
 
     new Scene(1000, 800) {
       fill = Color.White
       content = new Pane {
-        children = mkLines(holes, Color.Black) ++
+        children = mkLines(problem.hole.edges, Color.Black) ++
           figureInteractor.lines ++
           Seq(
-            new Text(600, 300, s"Dislikes: $dislikes") {
+            new Text(600, 300, s"Dislikes: ${pose.dislikes(problem)}") {
               font = Font(48)
               fill = new LinearGradient(
                 endX = 0,

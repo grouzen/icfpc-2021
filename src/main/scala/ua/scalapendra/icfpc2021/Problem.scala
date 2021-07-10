@@ -1,5 +1,6 @@
 package ua.scalapendra.icfpc2021
 
+import io.circe.Decoder.Result
 import io.circe._
 import io.circe.generic.semiauto._
 import scalafx.geometry.Point2D
@@ -97,24 +98,51 @@ object Figure {
   implicit val codec: Codec[Figure] = deriveCodec[Figure]
 }
 
-case class Problem(hole: List[Point], figure: Figure, epsilon: Int)
+case class Hole(points: List[Point]) {
 
-object Problem {
-  implicit val codec: Codec[Problem] = deriveCodec[Problem]
+  def edges: List[Vector2D] = {
+    val first = points.head
+    val last = points.last
+
+    Vector2D(first, last) :: points
+      .sliding(2)
+      .flatMap {
+        case List(first, second) => Some(Vector2D(first, second))
+        case _ => None
+      }
+      .toList
+  }
+
+
 }
 
-case class Pose(vertices: List[Point])
+case class Problem(hole: Hole, figure: Figure, epsilon: Int)
 
-object Pose {
+object Problem {
+  implicit val decoder: Decoder[Problem] = new Decoder[Problem] {
+    override def apply(c: HCursor): Result[Problem] =
+      for {
+        holePoints <- c.downField("hole").as[List[Point]]
+        epsilon <- c.downField("epsilon").as[Int]
+        figure <- c.downField("figure").as[Figure]
+      } yield Problem(Hole(holePoints), figure, epsilon)
+  }
 
-  def dislikes(pose: Pose, problem: Problem): Int =
-    problem.hole
-      .map { hole =>
-        val nearestVertex = pose.vertices.minBy(_ squareDistanceTo hole)
-        hole squareDistanceTo nearestVertex
+}
+
+case class Pose(vertices: List[Point]) {
+
+  def dislikes(problem: Problem): Int =
+    problem.hole.points
+      .map { holePoint =>
+        val nearestVertex = vertices.minBy(_ squareDistanceTo holePoint)
+        holePoint squareDistanceTo nearestVertex
       }
       .sum
       .toInt
 
+}
+
+object Pose {
   implicit val codec: Codec[Pose] = deriveCodec[Pose]
 }
