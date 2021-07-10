@@ -20,7 +20,7 @@ import javafx.{event => jfxe}
 
 object Main extends JFXApp3 {
 
-  private val Scale  = 3
+  private val Scale = 3
   private val Offset = 200
 
   override def start(): Unit =
@@ -33,16 +33,12 @@ object Main extends JFXApp3 {
 
   private def readProblemFromFile(file: Path): Problem =
     parser
-      .decode[Problem](
-        new String(Files.readAllBytes(file))
-      )
+      .decode[Problem](new String(Files.readAllBytes(file)))
       .fold(throw _, identity)
 
   private def readPoseFromFile(file: Path): Pose =
     parser
-      .decode[Pose](
-        new String(Files.readAllBytes(file))
-      )
+      .decode[Pose](new String(Files.readAllBytes(file)))
       .fold(throw _, identity)
 
   class FigureInteractor(problem: Problem, pane: Pane) extends MouseHandler {
@@ -51,7 +47,6 @@ object Main extends JFXApp3 {
     val lines =
       mkLines(Vector2D.mkVectors(problem.figure), Color.Red)
         .map { line =>
-          line.onMouseClicked = jfxiHandler
           pane.onMouseClicked = jfxiHandler
           line
         }
@@ -59,15 +54,10 @@ object Main extends JFXApp3 {
     private val dislikeTextPane = new Text(600, 300, "") {
       text = dislikesTest
       font = Font(48)
-      fill = new LinearGradient(
-        endX = 0,
-        stops = Stops(Red, DarkRed)
-      )
+      fill = new LinearGradient(endX = 0, stops = Stops(Red, DarkRed))
     }
 
-    val scores = Seq(
-      dislikeTextPane
-    )
+    val scores = Seq(dislikeTextPane)
 
     private def dislikesTest: String = {
       val dislikes = Pose.dislikes(pose, problem)
@@ -77,7 +67,7 @@ object Main extends JFXApp3 {
     private val verticeToLine = lines.zipWithIndex.map(_.swap).toMap
 
     private def updateLines(idx: Int, isStarted: Boolean): Unit = {
-      val line  = verticeToLine(idx)
+      val line = verticeToLine(idx)
       val point = pose.vertices(idx)
       if (isStarted) {
         line.startX = point.x
@@ -92,17 +82,16 @@ object Main extends JFXApp3 {
     // todo: update doesn't work correctly (target point is set to deto v yebenyiax)
     private def update(start: Point2D, end: Point2D): Unit = {
       val started = Point.from2D(start, Scale, Offset)
-      val ended   = Point.from2D(end, Scale, Offset)
+      val ended = Point.from2D(end, Scale, Offset)
       println(s"started=$started ended=$ended")
       findAprox(pose.vertices, delta = 5)(started) match {
         case None =>
           println("No update")
         case Some((pointIdx, isStarted, p)) =>
           println(s"Found $pointIdx $p")
-          pose = pose.copy(
-            vertices = pose.vertices.updated(pointIdx, ended)
-          )
+          pose = pose.copy(vertices = pose.vertices.updated(pointIdx, ended))
           updateLines(pointIdx, isStarted)
+          startOpt = None
       }
     }
 
@@ -124,16 +113,20 @@ object Main extends JFXApp3 {
       }
     }
 
-    private def findAprox(points: List[Point], delta: Double)(point: Point): Option[(Int, Boolean, Point)] =
-      points.zipWithIndex.sliding(2).foldLeft(Option.empty[(Int, Boolean, Point)]) {
-        case (res @ Some(_), _) => res
-        case (None, List((start, startIdx), (end, endIdx))) =>
-          Option
-            .when((point ~= start).delta(delta))((startIdx, true, start))
-            .orElse {
-              Option.when((point ~= end).delta(delta))((endIdx, true, end))
-            }
-      }
+    private def findAprox(points: List[Point], delta: Double)(
+      point: Point
+    ): Option[(Int, Boolean, Point)] =
+      points.zipWithIndex
+        .sliding(2)
+        .foldLeft(Option.empty[(Int, Boolean, Point)]) {
+          case (res @ Some(_), _) => res
+          case (None, List((start, startIdx), (end, endIdx))) =>
+            Option
+              .when((point ~= start).delta(delta))((startIdx, true, start))
+              .orElse {
+                Option.when((point ~= end).delta(delta))((endIdx, false, end))
+              }
+        }
   }
 
   private def mkLines(vectors: List[Vector2D], color: Color): List[Line] = {
