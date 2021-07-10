@@ -4,25 +4,13 @@ import io.circe.Decoder.Result
 import io.circe._
 import io.circe.generic.semiauto._
 import scalafx.geometry.Point2D
+import cats.syntax.either._
 
 case class Vector2D(start: Point, end: Point) {
   def squareLength: Double = start squareDistanceTo end
 }
 
 object Vector2D {
-
-  def mkVectors(points: List[Point]): List[Vector2D] = {
-    val first = points.head
-    val last = points.last
-
-    Vector2D(first, last) :: points
-      .sliding(2)
-      .flatMap {
-        case List(first, second) => Some(Vector2D(first, second))
-        case _ => None
-      }
-      .toList
-  }
 
   def mkVectors(figure: Figure): List[Vector2D] =
     figure.edges.map {
@@ -43,23 +31,22 @@ case class Point(x: Int, y: Int) {
     math.pow(this.x - that.x, 2) + math.pow(this.y - that.y, 2)
 
   // https://www.geeksforgeeks.org/how-to-check-if-a-given-point-lies-inside-a-polygon/
+  private def orientation(p1: Point, p2: Point, p3: Point): Int = {
+    val result = (p2.y - p1.y) * (p3.x - p2.x) - (p2.x - p1.x) * (p3.y - p2.y)
+
+    if (result == 0) 0 // colinear
+    else if (result > 0) 1 // clockwise
+    else 2 // counterclockwise
+  }
+
+  private def onEdge(p: Point, q: Point, r: Point): Boolean = {
+    import Math._
+
+    if (q.x <= max(p.x, r.x) && q.x >= min(p.x, r.x) && q.y <= max(p.y, r.y) && q.y >= min(p.y, r.y)) true
+    else false
+  }
+
   def intersectedWith(edge: Vector2D): Boolean = {
-
-    def orientation(p1: Point, p2: Point, p3: Point): Int = {
-      val result = (p2.y - p1.y) * (p3.x - p2.x) - (p2.x - p1.x) * (p3.y - p2.y)
-
-      if (result == 0) 0 // colinear
-      else if (result > 0) 1 // clockwise
-      else 2 // counterclockwise
-    }
-
-    def onEdge(p: Point, q: Point, r: Point): Boolean = {
-      import Math._
-
-      if (q.x <= max(p.x, r.x) && q.x >= min(p.x, r.x) && q.y <= max(p.y, r.y) && q.y >= min(p.y, r.y)) true
-      else false
-    }
-
     val edgeMaxX = Math.max(edge.start.x, edge.end.x)
     val rayEnd = if (x > edgeMaxX) x + 1 else edgeMaxX + 1
     val ray = Vector2D(Point(x, y), Point(rayEnd, y))
@@ -75,6 +62,25 @@ case class Point(x: Int, y: Int) {
     else if (o3 == 0 && onEdge(ray.start, edge.start, ray.end)) true
     else if (o4 == 0 && onEdge(ray.start, edge.end, ray.end)) true
     else false
+  }
+
+  def inHole(hole: Hole): Boolean = {
+    val intersections = hole.edges.foldLeft(0.asRight[Boolean]) { case (countOrReturn, edge) =>
+      countOrReturn.flatMap { count =>
+        if (intersectedWith(edge)) {
+          if (orientation(edge.start, this, edge.end) == 0)
+            onEdge(edge.start, this, edge.end).asLeft
+          else
+            (count + 1).asRight
+        }
+        else count.asRight
+      }
+    }
+
+    intersections match {
+      case Right(v) => v % 2 == 1
+      case Left(result) => result
+    }
   }
 
 }
@@ -99,6 +105,8 @@ object Figure {
 }
 
 case class Hole(points: List[Point]) {
+
+  assert(points.size >= 3)
 
   def edges: List[Vector2D] = {
     val first = points.head
