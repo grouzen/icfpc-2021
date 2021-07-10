@@ -47,18 +47,20 @@ case class Point(x: Int, y: Int) { self =>
   private def orientation(p1: Point, p2: Point, p3: Point): Int = {
     val result = (p2.y - p1.y) * (p3.x - p2.x) - (p2.x - p1.x) * (p3.y - p2.y)
 
-    if (result == 0) 0 // colinear
+    if (result == 0) 0     // colinear
     else if (result > 0) 1 // clockwise
-    else 2 // counterclockwise
+    else 2                 // counterclockwise
   }
 
   private def onEdge(p: Point, q: Point, r: Point): Boolean = {
     import Math._
 
-    if (q.x <= max(p.x, r.x)
-        && q.x >= min(p.x, r.x)
-        && q.y <= max(p.y, r.y)
-        && q.y >= min(p.y, r.y))
+    if (
+      q.x <= max(p.x, r.x)
+      && q.x >= min(p.x, r.x)
+      && q.y <= max(p.y, r.y)
+      && q.y >= min(p.y, r.y)
+    )
       true
     else
       false
@@ -86,12 +88,12 @@ case class Point(x: Int, y: Int) { self =>
     val intersections = hole.edges.foldLeft(0.asRight[Boolean]) {
       case (countOrReturn, edge) =>
         countOrReturn.flatMap { count =>
-          if (intersectedWith(edge)) {
+          if (intersectedWith(edge))
             if (orientation(edge.start, this, edge.end) == 0)
               onEdge(edge.start, this, edge.end).asLeft
             else
               (count + 1).asRight
-          } else count.asRight
+          else count.asRight
         }
     }
 
@@ -104,6 +106,7 @@ case class Point(x: Int, y: Int) { self =>
 }
 
 object Point {
+
   implicit val decoder: Decoder[Point] =
     Decoder[List[Int]].emap {
       case List(x, y) => Right(Point(x, y))
@@ -113,10 +116,11 @@ object Point {
   implicit val encoder: Encoder[Point] =
     Encoder[List[Int]].contramap[Point](p => List(p.x, p.y))
 
-  def from2D(point: Point2D, scale: Int, offset: Int): Point = Point(
-    ((point.x - offset) / scale).toInt,
-    ((point.y - offset) / scale).toInt
-  )
+  def from2D(point: Point2D, scale: Int, offset: Int): Point =
+    Point(
+      ((point.x - offset) / scale).toInt,
+      ((point.y - offset) / scale).toInt
+    )
 }
 
 case class Figure(edges: List[Point], vertices: List[Point])
@@ -147,7 +151,9 @@ case class Hole(points: List[Point]) {
 case class Problem(hole: Hole, figure: Figure, epsilon: Int)
 
 object Problem {
+
   implicit val decoder: Decoder[Problem] = new Decoder[Problem] {
+
     override def apply(c: HCursor): Result[Problem] =
       for {
         holePoints <- c.downField("hole").as[List[Point]]
@@ -172,5 +178,8 @@ case class Pose(vertices: List[Point]) {
 }
 
 object Pose {
+
+  def dislikes(pose: Pose, problem: Problem) = pose.dislikes(problem)
+
   implicit val codec: Codec[Pose] = deriveCodec[Pose]
 }

@@ -20,7 +20,7 @@ import javafx.{event => jfxe}
 
 object Main extends JFXApp3 {
 
-  private val Scale = 3
+  private val Scale  = 3
   private val Offset = 200
 
   override def start(): Unit =
@@ -67,7 +67,7 @@ object Main extends JFXApp3 {
     private val verticeToLine = lines.zipWithIndex.map(_.swap).toMap
 
     private def updateLines(idx: Int, isStarted: Boolean): Unit = {
-      val line = verticeToLine(idx)
+      val line  = verticeToLine(idx)
       val point = pose.vertices(idx)
       if (isStarted) {
         line.startX = point.x
@@ -82,7 +82,7 @@ object Main extends JFXApp3 {
     // todo: update doesn't work correctly (target point is set to deto v yebenyiax)
     private def update(start: Point2D, end: Point2D): Unit = {
       val started = Point.from2D(start, Scale, Offset)
-      val ended = Point.from2D(end, Scale, Offset)
+      val ended   = Point.from2D(end, Scale, Offset)
       println(s"started=$started ended=$ended")
       findAprox(pose.vertices, delta = 5)(started) match {
         case None =>
@@ -114,7 +114,7 @@ object Main extends JFXApp3 {
     }
 
     private def findAprox(points: List[Point], delta: Double)(
-      point: Point
+        point: Point
     ): Option[(Int, Boolean, Point)] =
       points.zipWithIndex
         .sliding(2)
@@ -131,19 +131,20 @@ object Main extends JFXApp3 {
 
   private def mkLines(vectors: List[Vector2D], color: Color): List[Line] = {
 
-    def mkLine(vector: Vector2D): Line = new Line {
-      stroke = color
-      strokeWidth = 3
-      startX = vector.start.x * Scale + Offset
-      startY = vector.start.y * Scale + Offset
-      endX = vector.end.x * Scale + Offset
-      endY = vector.end.y * Scale + Offset
-    }
+    def mkLine(vector: Vector2D): Line =
+      new Line {
+        stroke = color
+        strokeWidth = 3
+        startX = vector.start.x * Scale + Offset
+        startY = vector.start.y * Scale + Offset
+        endX = vector.end.x * Scale + Offset
+        endY = vector.end.y * Scale + Offset
+      }
     vectors.map(mkLine)
   }
 
   private def visualizeProblem(problem: Problem) = {
-    val holes = Vector2D.mkVectors(problem.hole)
+    val holes = problem.hole.edges
     new Scene(1000, 800) {
       fill = Color.White
       content = new Pane {
