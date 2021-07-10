@@ -46,11 +46,13 @@ case class Point(x: Int, y: Int) {
   private def onEdge(p: Point, q: Point, r: Point): Boolean = {
     import Math._
 
-    if (q.x <= max(p.x, r.x) && q.x >= min(p.x, r.x) && q.y <= max(p.y, r.y) && q.y >= min(
-          p.y,
-          r.y
-        )) true
-    else false
+    if (q.x <= max(p.x, r.x)
+        && q.x >= min(p.x, r.x)
+        && q.y <= max(p.y, r.y)
+        && q.y >= min(p.y, r.y))
+      true
+    else
+      false
   }
 
   def intersectedWith(edge: Vector2D): Boolean = {
