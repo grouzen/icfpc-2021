@@ -20,8 +20,9 @@ lazy val root = project
         "circe-parser"
       )
       Seq(
-        "org.scalafx" %% "scalafx" % "16.0.0-R24"
+        "org.scalafx" %% "scalafx" % "16.0.0-R24",
+        "org.scalatest" %% "scalatest" % "3.2.9" % "test"
       ) ++ javaFXModules.map(m => "org.openjfx" % s"javafx-$m" % "16" classifier "linux") ++
-        circeModules.map(m => "io.circe"        %% m           % "0.14.1")
+        circeModules.map(m => "io.circe" %% m % "0.14.1")
     }
   )
