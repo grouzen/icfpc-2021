@@ -46,7 +46,7 @@ object Main extends JFXApp3 {
 
   class FigureInteractor(initial: Figure) extends ShapeDrawInteractor {
     private var figure = initial
-    def lines          = mkLines(Vector2D.mkVectors(figure), Color.Red)
+    def lines          = mkLines(figure.edgesV, Color.Red)
 
     override def update(): Unit = {
       val started  = Point.from2D(start)
