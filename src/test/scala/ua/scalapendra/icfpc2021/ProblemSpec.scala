@@ -5,11 +5,33 @@ import org.scalatest.matchers.should.Matchers
 
 class ProblemSpec extends AnyFlatSpec with Matchers {
 
-  it should "compute intersection correctly" in {
-    val edge1  = Vector2D(Point(35, 5), Point(95, 95))
-    val point1 = Point(45, 35)
+  it should "compute intersection between edges correctly" in {
+    val edge1 = Vector2D(Point(35, 50), Point(5, 95))
+    val edge2 = Vector2D(Point(10, 60), Point(30, 80))
+    val edge3 = Vector2D(Point(15, 55), Point(25, 65))
+    val edge4 = Vector2D(Point(15, 55), Point(20, 60))
+    val edge5 = Vector2D(Point(15, 80), Point(35, 50))
+
+    edge1.intersectedBy(edge2) shouldBe true
+    edge1.intersectedBy(edge3) shouldBe false
+    edge1.intersectedBy(edge4) shouldBe false
+    edge1.intersectedBy(edge5) shouldBe false
+
+    val edge6 = Vector2D(Point(5, 5), Point(35, 5))
+    val edge7 = Vector2D(Point(10, 5), Point(30, 5))
+    val edge8 = Vector2D(Point(10, 5), Point(30, 10))
+
+    edge6.intersectedBy(edge7) shouldBe false
+    edge6.intersectedBy(edge8) shouldBe false
+  }
+
+  it should "compute intersection of given points with given edges correctly" in {
+    val edge1   = Vector2D(Point(35, 5), Point(95, 95))
+    val point1  = Point(45, 35)
+    val point22 = Point(75, 65)
 
     point1.intersectedWith(edge1) shouldBe true
+    point22.intersectedWith(edge1) shouldBe true
 
     val edge2  = Vector2D(Point(5, 5), Point(35, 50))
     val point2 = Point(45, 35)
@@ -27,7 +49,7 @@ class ProblemSpec extends AnyFlatSpec with Matchers {
     point5.intersectedWith(edge3) shouldBe true
     point6.intersectedWith(edge3) shouldBe true
 
-    val edge4  = Vector2D(Point(5, 5), Point(45, 5))
+    val edge4  = Vector2D(Point(5, 5), Point(35, 5))
     val point7 = Point(20, 5)
 
     point7.intersectedWith(edge4) shouldBe true
@@ -37,7 +59,18 @@ class ProblemSpec extends AnyFlatSpec with Matchers {
     point6.intersectedWith(edge5) shouldBe true
   }
 
-  it should "compute inHold correctly for given points" in {
+  it should "compute Point.onEdge for given points colinear with edges correctly" in {
+    val edge1  = Vector2D(Point(35, 5), Point(95, 95))
+    val point1 = Point(65, 50)
+    val point2 = Point(75, 65)
+    val point3 = Point(105, 110)
+
+    Point.onEdge(edge1.start, point1, edge1.end) shouldBe true
+    Point.onEdge(edge1.start, point2, edge1.end) shouldBe true
+    Point.onEdge(edge1.start, point3, edge1.end) shouldBe false
+  }
+
+  it should "compute inHole correctly for given points correctly" in {
     val hole = Hole(
       List(
         Point(45, 80),
@@ -67,6 +100,40 @@ class ProblemSpec extends AnyFlatSpec with Matchers {
     point5.inHole(hole) shouldBe false
     point6.inHole(hole) shouldBe true
     point7.inHole(hole) shouldBe true
+  }
+
+  it should "compute inHole for given edges correctly" in {
+    val hole = Hole(
+      List(
+        Point(45, 80),
+        Point(35, 95),
+        Point(5, 95),
+        Point(35, 50),
+        Point(5, 5),
+        Point(35, 5),
+        Point(95, 95),
+        Point(65, 95),
+        Point(55, 80)
+      )
+    )
+
+    val edge1 = Vector2D(Point(45, 45), Point(45, 65))
+    val edge2 = Vector2D(Point(55, 25), Point(55, 50))
+    val edge3 = Vector2D(Point(55, 80), Point(85, 80))
+    val edge4 = Vector2D(Point(55, 80), Point(90, 80))
+    val edge5 = Vector2D(Point(35, 80), Point(60, 80))
+    val edge6 = Vector2D(Point(35, 95), Point(65, 95))
+
+    edge1.inHole(hole) shouldBe true
+    edge2.inHole(hole) shouldBe false
+    edge3.inHole(hole) shouldBe true
+    edge4.inHole(hole) shouldBe false
+
+    // BUG: colinear edges are broken:
+    // 1. if an edge is actually in a hole (edge5)
+    // 2. if an edge is actually outside the hole, but its points are in the hole (edge6)
+    //edge5.inHole(hole) shouldBe true
+    //edge6.inHole(hole) shouldBe false
   }
 
 }
