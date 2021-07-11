@@ -16,9 +16,11 @@ case class Vector2D(start: Point, end: Point) {
     val o3 = Point.orientation(start, end, edge.start)
     val o4 = Point.orientation(start, end, edge.end)
 
-    if (o1 == 0 && o2 == 0 &&
-        Point.onEdge(start, edge.start, end) &&
-        Point.onEdge(start, edge.end, end)) false
+    if (
+      o1 == 0 && o2 == 0 &&
+      Point.onEdge(start, edge.start, end) &&
+      Point.onEdge(start, edge.end, end)
+    ) false
     else if (o1 == 0 && Point.onEdge(edge.start, start, edge.end)) false
     else if (o2 == 0 && Point.onEdge(edge.start, end, edge.end)) false
     else if (o3 == 0 && Point.onEdge(start, edge.start, end)) false
@@ -75,12 +77,12 @@ case class Point(x: Int, y: Int) {
     val intersections = hole.edges.foldLeft(0.asRight[Boolean]) {
       case (countOrReturn, edge) =>
         countOrReturn.flatMap { count =>
-          if (intersectedWith(edge)) {
+          if (intersectedWith(edge))
             if (Point.orientation(edge.start, this, edge.end) == 0)
               Point.onEdge(edge.start, this, edge.end).asLeft
             else
               (count + 1).asRight
-          } else count.asRight
+          else count.asRight
         }
     }
 
@@ -90,9 +92,24 @@ case class Point(x: Int, y: Int) {
     }
   }
 
+  def rotate(pivot: Point, angle: Double): Point = {
+    import Math._
+
+    val xx =
+      cos(angle) * (x - pivot.x) - sin(angle) * (y - pivot.y) + pivot.x
+    val yy =
+      sin(angle) * (x - pivot.x) + cos(angle) * (y - pivot.y) + pivot.y
+
+    Point(xx.toInt, yy.toInt)
+  }
+
+  def translate(xx: Int, yy: Int): Point =
+    copy(x = x + xx, y = y + yy)
+
 }
 
 object Point {
+
   implicit val decoder: Decoder[Point] =
     Decoder[List[Int]].emap {
       case List(x, y) => Right(Point(x, y))
@@ -107,18 +124,20 @@ object Point {
   def orientation(p1: Point, p2: Point, p3: Point): Int = {
     val result = (p2.y - p1.y) * (p3.x - p2.x) - (p2.x - p1.x) * (p3.y - p2.y)
 
-    if (result == 0) 0 // colinear
+    if (result == 0) 0     // colinear
     else if (result > 0) 1 // clockwise
-    else 2 // counterclockwise
+    else 2                 // counterclockwise
   }
 
   def onEdge(p: Point, q: Point, r: Point): Boolean = {
     import Math._
 
-    if (q.x <= max(p.x, r.x)
-        && q.x >= min(p.x, r.x)
-        && q.y <= max(p.y, r.y)
-        && q.y >= min(p.y, r.y))
+    if (
+      q.x <= max(p.x, r.x)
+      && q.x >= min(p.x, r.x)
+      && q.y <= max(p.y, r.y)
+      && q.y >= min(p.y, r.y)
+    )
       true
     else
       false
@@ -145,6 +164,16 @@ case class Figure(edges: List[Point], vertices: List[Point]) {
 
   def inHole(hole: Hole): Boolean =
     edgesV.forall(_.inHole(hole))
+
+  def rotate(angle: Double): Figure = {
+    val radian = angle * Math.PI / 180
+    val pivot  = Point.centroid(vertices)
+
+    copy(vertices = vertices.map(_.rotate(pivot, radian)))
+  }
+
+  def translate(x: Int, y: Int): Figure =
+    copy(vertices = vertices.map(_.translate(x, y)))
 
 }
 
@@ -174,7 +203,9 @@ case class Hole(points: List[Point]) {
 case class Problem(hole: Hole, figure: Figure, epsilon: Int)
 
 object Problem {
+
   implicit val decoder: Decoder[Problem] = new Decoder[Problem] {
+
     override def apply(c: HCursor): Result[Problem] =
       for {
         holePoints <- c.downField("hole").as[List[Point]]

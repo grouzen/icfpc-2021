@@ -20,14 +20,14 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 object Main extends JFXApp3 {
 
-  private val Scale  = 3
+  private val Scale  = 10
   private val Offset = 200
 
   override def start(): Unit =
     stage = new PrimaryStage {
       title = "ICFPC 2021 visualizer"
       scene = visualizeProblem(
-        readProblemFromFile(Paths.get("problems", "1.problem"))
+        readProblemFromFile(Paths.get("problems", "14.problem"))
       )
     }
 
@@ -81,6 +81,7 @@ object Main extends JFXApp3 {
 
       dislikeTextPane.text = dislikesTest
     }
+
   }
 
   private def mkLines(vectors: List[Vector2D], color: Color): List[Line] = {
@@ -116,9 +117,10 @@ object Main extends JFXApp3 {
       }
     }
     Future {
-      Thread.sleep(5000)
-      figureInteractor.pose =
-        readPoseFromFile(Paths.get("solutions", "1.solution"))
+      Thread.sleep(1000)
+
+      val modified = problem.figure.rotate(48).translate(1, -1)
+      figureInteractor.pose = Pose(modified.vertices)
     }
     scene
   }
