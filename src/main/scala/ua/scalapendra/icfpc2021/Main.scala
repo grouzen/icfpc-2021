@@ -11,6 +11,7 @@ import scalafx.scene.paint._
 import scalafx.scene.shape.{Circle, Line}
 import scalafx.scene.text.Font
 import scalafx.scene.text.Text
+import ua.scalapendra.icfpc2021.solver.ManualSolver14
 
 import java.nio.file.Files
 import java.nio.file.Path
@@ -20,16 +21,21 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 object Main extends JFXApp3 {
 
-  private val Scale  = 10
+  private val Scale  = 30
   private val Offset = 200
 
-  override def start(): Unit =
+  override def start(): Unit = {
+    val problem = readProblemFromFile(Paths.get("problems", "14.problem"))
+
     stage = new PrimaryStage {
       title = "ICFPC 2021 visualizer"
-      scene = visualizeProblem(
-        readProblemFromFile(Paths.get("problems", "14.problem"))
-      )
+      scene = visualizeProblem(problem)
     }
+
+    val solver = ManualSolver14(problem)
+
+    solver.dumpSolution("14.solution")
+  }
 
   private def readProblemFromFile(file: Path): Problem =
     parser
@@ -124,4 +130,5 @@ object Main extends JFXApp3 {
     }
     scene
   }
+
 }
