@@ -6,6 +6,8 @@ import io.circe.generic.semiauto._
 import scalafx.geometry.Point2D
 import cats.syntax.either._
 
+import java.nio.file.{Files, Path}
+
 case class Vector2D(start: Point, end: Point) {
 
   def squareLength: Double = start squareDistanceTo end
@@ -44,6 +46,7 @@ object Vector2D {
       epsilon: Int
   ): Boolean = {
     val ratio = epsilon.toDouble / 1000000
+
     math.abs((after.squareLength / before.squareLength) - 1) <= ratio
   }
 }
@@ -200,7 +203,20 @@ case class Hole(points: List[Point]) {
 
 }
 
-case class Problem(hole: Hole, figure: Figure, epsilon: Int)
+case class Problem(hole: Hole, figure: Figure, epsilon: Int) {
+
+  def validatePose(pose: Pose): Boolean = {
+    val fig = pose.mkFigure(figure.edges)
+
+    val shrinkAllowed = figure.edgesV.zip(fig.edgesV).forall {
+      case (beforeEdge, afterEdge) =>
+        Vector2D.shrinkAllowed(beforeEdge, afterEdge, epsilon)
+    }
+
+    shrinkAllowed && fig.inHole(hole)
+  }
+
+}
 
 object Problem {
 
@@ -213,6 +229,11 @@ object Problem {
         figure     <- c.downField("figure").as[Figure]
       } yield Problem(Hole(holePoints), figure, epsilon)
   }
+
+  def readProblemFromFile(file: Path): Problem =
+    parser
+      .decode[Problem](new String(Files.readAllBytes(file)))
+      .fold(throw _, identity)
 
 }
 
@@ -227,8 +248,17 @@ case class Pose(vertices: List[Point]) {
       .sum
       .toInt
 
+  def mkFigure(edges: List[Point]): Figure =
+    Figure(edges, vertices)
+
 }
 
 object Pose {
   implicit val codec: Codec[Pose] = deriveCodec[Pose]
+
+  def readPoseFromFile(file: Path): Pose =
+    parser
+      .decode[Pose](new String(Files.readAllBytes(file)))
+      .fold(throw _, identity)
+
 }

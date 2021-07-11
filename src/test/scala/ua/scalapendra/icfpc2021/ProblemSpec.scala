@@ -3,6 +3,8 @@ package ua.scalapendra.icfpc2021
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.file.Paths
+
 class ProblemSpec extends AnyFlatSpec with Matchers {
 
   it should "compute intersection between edges correctly" in {
@@ -134,6 +136,21 @@ class ProblemSpec extends AnyFlatSpec with Matchers {
     // 2. if an edge is actually outside the hole, but its points are in the hole (edge6)
     //edge5.inHole(hole) shouldBe true
     //edge6.inHole(hole) shouldBe false
+  }
+
+  it should "validate pose correctly" in {
+//    val problem1 =
+//      Problem.readProblemFromFile(Paths.get("problems", "1.problem"))
+//    val pose1 = Pose.readPoseFromFile(Paths.get("solutions", "1.solution"))
+//
+//    problem1.validatePose(pose1) shouldBe true
+
+    val problem14 =
+      Problem.readProblemFromFile(Paths.get("problems", "14.problem"))
+    val pose14 = Pose.readPoseFromFile(Paths.get("solutions", "1.solution"))
+
+    problem14.validatePose(pose14) shouldBe true
+
   }
 
 }

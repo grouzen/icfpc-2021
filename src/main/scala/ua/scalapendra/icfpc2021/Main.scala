@@ -25,7 +25,8 @@ object Main extends JFXApp3 {
   private val Offset = 200
 
   override def start(): Unit = {
-    val problem = readProblemFromFile(Paths.get("problems", "14.problem"))
+    val problem =
+      Problem.readProblemFromFile(Paths.get("problems", "14.problem"))
 
     stage = new PrimaryStage {
       title = "ICFPC 2021 visualizer"
@@ -36,16 +37,6 @@ object Main extends JFXApp3 {
 
     solver.dumpSolution("14.solution")
   }
-
-  private def readProblemFromFile(file: Path): Problem =
-    parser
-      .decode[Problem](new String(Files.readAllBytes(file)))
-      .fold(throw _, identity)
-
-  private def readPoseFromFile(file: Path): Pose =
-    parser
-      .decode[Pose](new String(Files.readAllBytes(file)))
-      .fold(throw _, identity)
 
   class FigureInteractor(problem: Problem) {
     val lines = mkLines(problem.figure.edgesV, Color.Red)
