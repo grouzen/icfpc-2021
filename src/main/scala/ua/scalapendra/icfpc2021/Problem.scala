@@ -134,6 +134,9 @@ case class Figure(edges: List[Point], vertices: List[Point]) {
         Vector2D(vertices(start), vertices(end))
     }
 
+  def inHole(hole: Hole): Boolean =
+    edgesV.forall(_.inHole(hole))
+
 }
 
 object Figure {
