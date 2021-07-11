@@ -5,18 +5,18 @@ import scalafx.application.JFXApp3
 import scalafx.application.JFXApp3.PrimaryStage
 import scalafx.geometry.Point2D
 import scalafx.scene.Scene
-import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.Pane
 import scalafx.scene.paint.Color._
 import scalafx.scene.paint._
 import scalafx.scene.shape.Line
 import scalafx.scene.text.Font
 import scalafx.scene.text.Text
+
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import javafx.scene.{input => jfxi}
-import javafx.{event => jfxe}
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 object Main extends JFXApp3 {
 
@@ -41,15 +41,20 @@ object Main extends JFXApp3 {
       .decode[Pose](new String(Files.readAllBytes(file)))
       .fold(throw _, identity)
 
-  class FigureInteractor(problem: Problem, pane: Pane) extends MouseHandler {
-    private var pose = Pose(problem.figure.vertices)
+  class FigureInteractor(problem: Problem) {
+    val lines = mkLines(problem.figure.edgesV, Color.Red)
 
-    val lines =
-      mkLines(Vector2D.mkVectors(problem.figure), Color.Red)
-        .map { line =>
-          pane.onMouseClicked = jfxiHandler
-          line
-        }
+    private var _pose: Pose = Pose(problem.figure.vertices)
+
+    def pose: Pose = _pose
+
+    def pose_=(p: Pose): Unit = {
+      _pose = p
+      val newFigure = problem.figure.copy(vertices = _pose.vertices)
+      for ((line, idx) <- newFigure.edgesV.zipWithIndex) {
+        updateLines(idx, line.start, line.end)
+      }
+    }
 
     private val dislikeTextPane = new Text(600, 300, "") {
       text = dislikesTest
@@ -60,73 +65,23 @@ object Main extends JFXApp3 {
     val scores = Seq(dislikeTextPane)
 
     private def dislikesTest: String = {
-      val dislikes = Pose.dislikes(pose, problem)
+      val dislikes = pose.dislikes(problem)
       s"Dislikes: $dislikes"
     }
 
     private val verticeToLine = lines.zipWithIndex.map(_.swap).toMap
 
-    private def updateLines(idx: Int, isStarted: Boolean): Unit = {
-      val line  = verticeToLine(idx)
-      val point = pose.vertices(idx)
-      if (isStarted) {
-        line.startX = point.x
-        line.startY = point.y
-      } else {
-        line.endX = point.x
-        line.endY = point.y
-      }
+    private def updateLines(idx: Int, start: Point, end: Point): Unit = {
+      val line = verticeToLine(idx)
+
+      line.startX = start.x * Scale + Offset
+      line.startY = start.y * Scale + Offset
+
+      line.endX = end.x * Scale + Offset
+      line.endY = end.y * Scale + Offset
+
       dislikeTextPane.text = dislikesTest
     }
-
-    // todo: update doesn't work correctly (target point is set to deto v yebenyiax)
-    private def update(start: Point2D, end: Point2D): Unit = {
-      val started = Point.from2D(start, Scale, Offset)
-      val ended   = Point.from2D(end, Scale, Offset)
-      println(s"started=$started ended=$ended")
-      findAprox(pose.vertices, delta = 5)(started) match {
-        case None =>
-          println("No update")
-        case Some((pointIdx, isStarted, p)) =>
-          println(s"Found $pointIdx $p")
-          pose = pose.copy(vertices = pose.vertices.updated(pointIdx, ended))
-          updateLines(pointIdx, isStarted)
-          startOpt = None
-      }
-    }
-
-    private var startOpt = Option.empty[Point2D]
-
-    private def setStart(p: Point2D): Unit = {
-      println(s"setStart($p)")
-      startOpt = Some(p)
-    }
-
-    override def handler: MouseEvent => Unit = { (me: MouseEvent) =>
-      me.eventType match {
-        case MouseEvent.MouseClicked if startOpt.isEmpty =>
-          // todo: check that clicked position is vertice
-          setStart(new Point2D(me.x, me.y))
-        case MouseEvent.MouseClicked if startOpt.nonEmpty =>
-          update(startOpt.get, new Point2D(me.x, me.y))
-        case _ =>
-      }
-    }
-
-    private def findAprox(points: List[Point], delta: Double)(
-        point: Point
-    ): Option[(Int, Boolean, Point)] =
-      points.zipWithIndex
-        .sliding(2)
-        .foldLeft(Option.empty[(Int, Boolean, Point)]) {
-          case (res @ Some(_), _) => res
-          case (None, List((start, startIdx), (end, endIdx))) =>
-            Option
-              .when((point ~= start).delta(delta))((startIdx, true, start))
-              .orElse {
-                Option.when((point ~= end).delta(delta))((endIdx, false, end))
-              }
-        }
   }
 
   private def mkLines(vectors: List[Vector2D], color: Color): List[Line] = {
@@ -144,25 +99,20 @@ object Main extends JFXApp3 {
   }
 
   private def visualizeProblem(problem: Problem) = {
-    val holes = problem.hole.edges
-    new Scene(1000, 800) {
+    val holes            = problem.hole.edges
+    val figureInteractor = new FigureInteractor(problem)
+    val scene = new Scene(1000, 800) {
       fill = Color.White
       content = new Pane {
-        val figureInteractor = new FigureInteractor(problem, this)
         children = mkLines(holes, Color.Black) ++
           figureInteractor.lines ++
           figureInteractor.scores
       }
     }
-  }
-
-  trait MouseHandler {
-    protected def handler: MouseEvent => Unit
-
-    def jfxiHandler: jfxe.EventHandler[_ >: jfxi.MouseEvent] =
-      (e: jfxi.MouseEvent) => {
-        println(s"Got event $e")
-        handler(new MouseEvent(e))
-      }
+    Future {
+      Thread.sleep(5000)
+      figureInteractor.pose = readPoseFromFile(Paths.get("solutions", "1.solution"))
+    }
+    scene
   }
 }
