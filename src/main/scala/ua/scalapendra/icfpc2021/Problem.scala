@@ -1,6 +1,6 @@
 package ua.scalapendra.icfpc2021
 
-import io.circe.Decoder.Result
+import io.circe.Decoder.{Result, decodeList}
 import io.circe._
 import io.circe.generic.semiauto._
 import scalafx.geometry.Point2D
@@ -122,6 +122,15 @@ object Point {
       true
     else
       false
+  }
+
+  def centroid(points: List[Point]): Point = {
+    val n = points.size
+
+    val x = ((1.toDouble / n.toDouble) * points.map(_.x).sum).toInt
+    val y = ((1.toDouble / n.toDouble) * points.map(_.y).sum).toInt
+
+    Point(x, y)
   }
 
 }
