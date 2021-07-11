@@ -6,8 +6,14 @@ import io.circe.generic.semiauto._
 import scalafx.geometry.Point2D
 import cats.syntax.either._
 
+import java.util.concurrent.LinkedBlockingQueue
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
+import scala.concurrent.Await
+import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 case class Vector2D(start: Point, end: Point) {
 
@@ -46,6 +52,12 @@ object Vector2D {
 }
 
 case class Point(x: Int, y: Int) {
+
+  def apply(idx: Int): Int =
+    if (idx == 0) x
+    else if (idx == 1) y
+    else throw new UnsupportedOperationException(s"Point.apply($idx) not in [0, 1]")
+
   override def toString: String = s"($x, $y)"
 
   def squareDistanceTo(that: Point): Double =
@@ -133,101 +145,88 @@ case class Figure(edges: List[Point], vertices: List[Point]) {
         Vector2D(vertices(start), vertices(end))
     }
 
-  lazy val cycles: List[Figure] = {
-    val graph: Map[Int, List[Int]] = {
-      var base = Map.empty[Int, List[Int]]
-      for (Point(u, v) <- edges) {
-        base = base
-          .updatedWith(u) {
-            case None       => Some(List(v))
-            case Some(list) => Some(list :+ v)
-          }
-          .updatedWith(v) {
-            case None       => Some(List(u))
-            case Some(list) => Some(list :+ u)
-          }
+  type Path   = Array[Int]
+  type Cycles = Array[Path]
+
+  lazy val cyclesNaive: List[Figure] = {
+    val cycles = new LinkedBlockingQueue[Path]()
+
+    def smallest(path: Path): Int = path.min
+    def visited(n:     Int, path: Path): Boolean = path.contains(n)
+    def isNew(path:    Path): Boolean =
+      !cycles.contains(path)
+
+    def normalize(path: Path): Path = {
+      val p = new Array[Int](path.length)
+      val x = smallest(path)
+      var n = 0
+      System.arraycopy(path, 0, p, 0, path.length)
+      while (p(0) != x) {
+        n = p(0)
+        System.arraycopy(p, 1, p, 0, p.length - 1)
+        p(p.length - 1) = n
       }
-      base
+      p
     }
 
-    println(graph)
+    def invert(path: Path): Path = path.reverse
 
-    var cycleNumber = 0
-    val cycles      = mutable.Map[Int, mutable.ListBuffer[Int]]()
-    val N           = 100000
-    for (i <- 0 until N) {
-      cycles(i) = mutable.ListBuffer.empty[Int]
-    }
+    def findNewCycles(path: Path): Unit = {
+      val n   = path(0)
+      var x   = 0
+      val sub = new Array[Int](path.length + 1)
 
-    def dfsCycle(
-      u:     Int,
-      p:     Int,
-      color: Array[Int],
-      mark:  Array[Int],
-      par:   Array[Int]
-    ): Unit = {
-      println(s"dfsCycle(u=$u, p=$p, ...)")
-      if (color(u) == 2) {
-        println(s"completely visited u=$u")
-        return
-      }
-      if (color(u) == 1) {
-        println(s"traversing cycle u=$u")
-        cycleNumber += 1
-        var cur     = p
-        var prevCur = cur
-        mark(cur) = cycleNumber
-
-        while (cur != u) {
-          prevCur = cur
-          cur = par(u)
-          if (prevCur == cur) {
-            println(s"traversed cycle u=$u")
-            return
+      for (i <- edges.indices) {
+        println(s"i=$i")
+        var y = 0
+        while (y <= 1) {
+          println(s"y=$y")
+          if (edges(i)(y) == n) {
+            println("edge refers to our current node")
+            x = edges(i)((y + 1) % 2)
+            if (!visited(x, path)) {
+              println(s"neighbor node not on path yet ($x, ${path.mkString("Array(", ", ", ")")})")
+              sub(0) = x
+              System.arraycopy(path, 0, sub, 1, path.length)
+              findNewCycles(sub)
+            } else if ((path.length > 2) && (x == path(path.length - 1))) {
+              println(s"cycle found ($x, ${path.mkString("Array(", ", ", ")")})")
+              val p   = normalize(path)
+              val inv = invert(p)
+              if (isNew(p) && isNew(inv)) {
+                cycles.add(p)
+              }
+            }
           }
-          mark(cur) = cycleNumber
-        }
-        println(s"traversed cycle u=$u")
-        return
-      }
 
-      par(u) = p
-
-      color(u) = 1
-      for (v <- graph(u)) {
-        if (v != par(u)) {
-          println(s"deeper $u $v")
-          dfsCycle(v, u, color, mark, par)
+          y += 1
         }
       }
-
-      color(u) = 2
     }
 
-    def collectCycles(edges: Int, mark: Array[Int]): Map[Int, List[Int]] = {
-      for (i <- 1 to edges) {
-        if (mark(i) != 0) {
-          println(s"Found cycle ${mark(i)}")
-          cycles(mark(i)) += i
+    val resultsFuture = Future.traverse(edges.indices.grouped(8).toList) { is =>
+      Future {
+        for (i <- is) {
+          for (j <- 0 to 1) {
+            findNewCycles(Array(edges(i)(j)))
+          }
         }
       }
-      cycles.map { case (idx, vs) => idx -> vs.toList }.toMap
     }
 
-    val color = new Array[Int](N)
-    val par   = new Array[Int](N)
-    val mark  = new Array[Int](N)
+    Await.result(resultsFuture, Duration.Inf)
 
-    val edge = edges.length - 1
-    dfsCycle(1, 0, color, mark, par)
+    cycles.asScala.toList.map { path =>
+      val edges = path.toList
+        .sliding(2)
+        .flatMap {
+          case List(x, y) => Some(Point(x, y))
+          case _          => None
+        }
+        .toList
 
-    // todo: doesn't draw all edges
-    collectCycles(edge, mark).map {
-      case (x, ys) =>
-        val newEdges = ys.map(y => Point(x, y))
-//        val newVertices = newEdges.flatMap { case Point(i1, i2) => List(vertices(i1), vertices(i2)) }.distinct
-        Figure(newEdges, vertices)
-    }.toList
+      Figure(edges, vertices)
+    }
   }
 
   def inHole(hole: Hole): Boolean =

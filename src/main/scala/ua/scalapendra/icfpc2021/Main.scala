@@ -101,12 +101,12 @@ object Main extends JFXApp3 {
   private def visualizeProblem(problem: Problem) = {
     val holes            = problem.hole.edges
     val figureInteractor = new FigureInteractor(problem)
-    println(problem.figure.cycles)
+    println(problem.figure.cyclesNaive)
     val scene = new Scene(1000, 800) {
       fill = Color.White
       content = new Pane {
         children = mkLines(holes, Color.Black) ++
-          problem.figure.cycles.flatMap { figure =>
+          problem.figure.cyclesNaive.flatMap { figure =>
             mkLines(figure.edgesV, Color.Green)
           }
 //          figureInteractor.lines ++
