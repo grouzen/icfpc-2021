@@ -101,18 +101,25 @@ object Main extends JFXApp3 {
   private def visualizeProblem(problem: Problem) = {
     val holes            = problem.hole.edges
     val figureInteractor = new FigureInteractor(problem)
+    println(problem.figure.cycles)
     val scene = new Scene(1000, 800) {
       fill = Color.White
       content = new Pane {
         children = mkLines(holes, Color.Black) ++
-          figureInteractor.lines ++
-          figureInteractor.scores
+          problem.figure.cycles.flatMap { figure =>
+            mkLines(figure.edgesV, Color.Green)
+          }
+//          figureInteractor.lines ++
+//          figureInteractor.scores
       }
     }
-    Future {
-      Thread.sleep(5000)
-      figureInteractor.pose = readPoseFromFile(Paths.get("solutions", "1.solution"))
-    }
+//    Future {
+//      Thread.sleep(2000)
+//      for (cycle <- problem.figure.cycles) {
+//        figureInteractor.pose = Pose(cycle.vertices)
+//        Thread.sleep(2000)
+//      }
+//    }
     scene
   }
 }

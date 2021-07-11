@@ -6,6 +6,9 @@ import io.circe.generic.semiauto._
 import scalafx.geometry.Point2D
 import cats.syntax.either._
 
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
+
 case class Vector2D(start: Point, end: Point) {
 
   def squareLength: Double = start squareDistanceTo end
@@ -36,11 +39,7 @@ case class Vector2D(start: Point, end: Point) {
 
 object Vector2D {
 
-  def shrinkAllowed(
-      before: Vector2D,
-      after: Vector2D,
-      epsilon: Int
-  ): Boolean = {
+  def shrinkAllowed(before: Vector2D, after: Vector2D, epsilon: Int): Boolean = {
     val ratio = epsilon.toDouble / 1000000
     math.abs((after.squareLength / before.squareLength) - 1) <= ratio
   }
@@ -107,9 +106,9 @@ object Point {
   def orientation(p1: Point, p2: Point, p3: Point): Int = {
     val result = (p2.y - p1.y) * (p3.x - p2.x) - (p2.x - p1.x) * (p3.y - p2.y)
 
-    if (result == 0) 0 // colinear
+    if (result == 0) 0     // colinear
     else if (result > 0) 1 // clockwise
-    else 2 // counterclockwise
+    else 2                 // counterclockwise
   }
 
   def onEdge(p: Point, q: Point, r: Point): Boolean = {
@@ -133,6 +132,103 @@ case class Figure(edges: List[Point], vertices: List[Point]) {
       case Point(start, end) =>
         Vector2D(vertices(start), vertices(end))
     }
+
+  lazy val cycles: List[Figure] = {
+    val graph: Map[Int, List[Int]] = {
+      var base = Map.empty[Int, List[Int]]
+      for (Point(u, v) <- edges) {
+        base = base
+          .updatedWith(u) {
+            case None       => Some(List(v))
+            case Some(list) => Some(list :+ v)
+          }
+          .updatedWith(v) {
+            case None       => Some(List(u))
+            case Some(list) => Some(list :+ u)
+          }
+      }
+      base
+    }
+
+    println(graph)
+
+    var cycleNumber = 0
+    val cycles      = mutable.Map[Int, mutable.ListBuffer[Int]]()
+    val N           = 100000
+    for (i <- 0 until N) {
+      cycles(i) = mutable.ListBuffer.empty[Int]
+    }
+
+    def dfsCycle(
+      u:     Int,
+      p:     Int,
+      color: Array[Int],
+      mark:  Array[Int],
+      par:   Array[Int]
+    ): Unit = {
+      println(s"dfsCycle(u=$u, p=$p, ...)")
+      if (color(u) == 2) {
+        println(s"completely visited u=$u")
+        return
+      }
+      if (color(u) == 1) {
+        println(s"traversing cycle u=$u")
+        cycleNumber += 1
+        var cur     = p
+        var prevCur = cur
+        mark(cur) = cycleNumber
+
+        while (cur != u) {
+          prevCur = cur
+          cur = par(u)
+          if (prevCur == cur) {
+            println(s"traversed cycle u=$u")
+            return
+          }
+          mark(cur) = cycleNumber
+        }
+        println(s"traversed cycle u=$u")
+        return
+      }
+
+      par(u) = p
+
+      color(u) = 1
+      for (v <- graph(u)) {
+        if (v != par(u)) {
+          println(s"deeper $u $v")
+          dfsCycle(v, u, color, mark, par)
+        }
+      }
+
+      color(u) = 2
+    }
+
+    def collectCycles(edges: Int, mark: Array[Int]): Map[Int, List[Int]] = {
+      for (i <- 1 to edges) {
+        if (mark(i) != 0) {
+          println(s"Found cycle ${mark(i)}")
+          cycles(mark(i)) += i
+        }
+      }
+      cycles.map { case (idx, vs) => idx -> vs.toList }.toMap
+    }
+
+    val color = new Array[Int](N)
+    val par   = new Array[Int](N)
+    val mark  = new Array[Int](N)
+
+    val edge = edges.length - 1
+    dfsCycle(1, 0, color, mark, par)
+
+    // todo: doesn't draw all edges
+    collectCycles(edge, mark).map {
+      case (x, ys) =>
+        val newEdges = ys.map(y => Point(x, y))
+//        val newVertices = newEdges.flatMap { case Point(i1, i2) => List(vertices(i1), vertices(i2)) }.distinct
+        Figure(newEdges, vertices)
+    }.toList
+  }
 
   def inHole(hole: Hole): Boolean =
     edgesV.forall(_.inHole(hole))
