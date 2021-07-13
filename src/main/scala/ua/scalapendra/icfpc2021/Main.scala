@@ -8,9 +8,10 @@ import scalafx.scene.Scene
 import scalafx.scene.layout.Pane
 import scalafx.scene.paint.Color._
 import scalafx.scene.paint._
-import scalafx.scene.shape.Line
+import scalafx.scene.shape.{Circle, Line}
 import scalafx.scene.text.Font
 import scalafx.scene.text.Text
+import ua.scalapendra.icfpc2021.solver.ManualSolver14
 
 import java.nio.file.Files
 import java.nio.file.Path
@@ -20,26 +21,22 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 object Main extends JFXApp3 {
 
-  private val Scale  = 3
+  private val Scale  = 30
   private val Offset = 200
 
-  override def start(): Unit =
+  override def start(): Unit = {
+    val problem =
+      Problem.readProblemFromFile(Paths.get("problems", "14.problem"))
+
     stage = new PrimaryStage {
       title = "ICFPC 2021 visualizer"
-      scene = visualizeProblem(
-        readProblemFromFile(Paths.get("problems", "1.problem"))
-      )
+      scene = visualizeProblem(problem)
     }
 
-  private def readProblemFromFile(file: Path): Problem =
-    parser
-      .decode[Problem](new String(Files.readAllBytes(file)))
-      .fold(throw _, identity)
+    val solver = ManualSolver14(problem)
 
-  private def readPoseFromFile(file: Path): Pose =
-    parser
-      .decode[Pose](new String(Files.readAllBytes(file)))
-      .fold(throw _, identity)
+    solver.dumpSolution("14.solution")
+  }
 
   class FigureInteractor(problem: Problem) {
     val lines = mkLines(problem.figure.edgesV, Color.Red)
@@ -51,9 +48,8 @@ object Main extends JFXApp3 {
     def pose_=(p: Pose): Unit = {
       _pose = p
       val newFigure = problem.figure.copy(vertices = _pose.vertices)
-      for ((line, idx) <- newFigure.edgesV.zipWithIndex) {
+      for ((line, idx) <- newFigure.edgesV.zipWithIndex)
         updateLines(idx, line.start, line.end)
-      }
     }
 
     private val dislikeTextPane = new Text(600, 300, "") {
@@ -82,6 +78,7 @@ object Main extends JFXApp3 {
 
       dislikeTextPane.text = dislikesTest
     }
+
   }
 
   private def mkLines(vectors: List[Vector2D], color: Color): List[Line] = {
@@ -101,18 +98,28 @@ object Main extends JFXApp3 {
   private def visualizeProblem(problem: Problem) = {
     val holes            = problem.hole.edges
     val figureInteractor = new FigureInteractor(problem)
+    val centroid         = Point.centroid(problem.figure.vertices)
+
     val scene = new Scene(1000, 800) {
       fill = Color.White
       content = new Pane {
         children = mkLines(holes, Color.Black) ++
           figureInteractor.lines ++
-          figureInteractor.scores
+          figureInteractor.scores :+
+          Circle(
+            centroid.x.toDouble * Scale + Offset,
+            centroid.y.toDouble * Scale + Offset,
+            5f
+          )
       }
     }
     Future {
-      Thread.sleep(5000)
-      figureInteractor.pose = readPoseFromFile(Paths.get("solutions", "1.solution"))
+      Thread.sleep(1000)
+
+      val modified = problem.figure.rotate(48).translate(1, -1)
+      figureInteractor.pose = Pose(modified.vertices)
     }
     scene
   }
+
 }
